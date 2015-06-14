@@ -1,3 +1,9 @@
+/*
+	DragonSocket
+	Simple Web Socket Server
+
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,7 +36,6 @@ class DragonSocket
 	void active();
 	void input(int newsockfd);
 	
-	
 	std::string handshake(std::string key);
 	std::string code(std::string data);
 	int mask(const char * message, char * buffer);
@@ -43,7 +48,7 @@ class DragonSocket
 	std::vector<int> readfd;
 	void destroy_readfd(int fd);
 };
-
+/* Constructor */
 DragonSocket::DragonSocket(std::string ipAddressString, std::string portString)
 {
 	ip = ipAddressString;
@@ -51,19 +56,19 @@ DragonSocket::DragonSocket(std::string ipAddressString, std::string portString)
 	portNumber = atoi(portString.c_str());
 	searchKey = "Sec-WebSocket-Key:";
 }
- 
+ /* Destructor */
 DragonSocket::~DragonSocket() 
 {
 	
 }
-
+/* Start Server */
 void DragonSocket::start()
 { 
 	kill_thread = false;
 	main_thread = std::thread (&DragonSocket::active, this);
 	main_thread.detach();
 }
-
+/* Stop Server */
 void DragonSocket::stop()
 {
 	kill_thread = true;
@@ -72,12 +77,12 @@ void DragonSocket::stop()
 	readfd.clear();
     close(sockfd);	
 }
-
+/* Check Server */
 bool DragonSocket::isAlive()
 {
 	return !kill_thread;
 }
-
+/* Send Message */
 void DragonSocket::send(const char * msg)
 {
 	for (int i = 0; i < readfd.size(); i++)
@@ -90,7 +95,7 @@ void DragonSocket::send(const char * msg)
 		if (write(fd, hello_buffer, size_buff) < 0) destroy_readfd(fd);
 	}
 }
-
+/* Close FD from readfd vector */
 void DragonSocket::destroy_readfd(int fd)
 {
 	for (int i = 0; i < readfd.size(); i++)
@@ -103,7 +108,7 @@ void DragonSocket::destroy_readfd(int fd)
 		}
 	}
 }
-
+/*  Active a Server */
 void DragonSocket::active()
 {
 	// Initial Variables
@@ -127,7 +132,7 @@ void DragonSocket::active()
 	clilen = sizeof(cli_addr);
 	while (!kill_thread)
 	{
-		if (readfd.size() < 100)
+		if (readfd.size() < 100) // Limit Max 100 Connections
 		{
 			newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
 			if (newsockfd < 0)
@@ -141,7 +146,7 @@ void DragonSocket::active()
 		}
 	}
 }
-
+/*  Read Message From Client */
 void DragonSocket::input(int newsockfd)
 {
 	bool handshake_complete = false;
@@ -173,27 +178,16 @@ void DragonSocket::input(int newsockfd)
 			char message[size_buff];
 			strncpy(message, message_buffer, size_buff);
 			
-			// Server Stop Command
+			// Server Example Stop Command
 			std::string stopKey = "stop";
 			std::string findKey = message;
 			std::size_t found = findKey.find(stopKey);
 			if (found != std::string::npos) stop();
-		
-			/*	
-			printf("Message: %s", message); 
-			char hello_buffer[127];
-			bzero(hello_buffer, 127);
-			std::string old_msg = message;
-			std::string send = ">pong: ";
-			const char * hello = send.c_str();
-			size_buff = mask(hello, hello_buffer); 
-				
-			n = write(newsockfd, hello_buffer, size_buff);*/
 		}
 	}
 	destroy_readfd(newsockfd);
 }
-
+/* Handshake Message */
 std::string DragonSocket::handshake(std::string key)
 {
     std::string result = "HTTP/1.1 101 Web Socket Protocol Handshake\r\n";
@@ -204,7 +198,7 @@ std::string DragonSocket::handshake(std::string key)
     result += "Sec-WebSocket-Accept:" + code(key) + "\r\n\r\n";
     return result;
 }
-
+/* Encode Key */
 std::string DragonSocket::code(std::string key)
 {
     key += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -212,7 +206,7 @@ std::string DragonSocket::code(std::string key)
 	sha1::calc(key.c_str(), key.length(), buffer);
 	return base64_encode(buffer, 20);
 }
-
+/* Mask Send Message */
 int DragonSocket::unmask(const char * message, char * buffer)
 {
 	int final_size = message[1] & 0x7f;
@@ -247,7 +241,7 @@ int DragonSocket::unmask(const char * message, char * buffer)
 	
 	return final_size;
 }
-
+/* Unmask Receive Message */
 int DragonSocket::mask(const char * message, char * buffer)
 {
 	int size = strlen(message);
